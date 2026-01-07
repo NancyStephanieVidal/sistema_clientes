@@ -1,88 +1,33 @@
 """
 API REST con FastAPI para gestionar clientes, motocicletas y sucursales
-OPTIMIZADO PARA RENDER.COM
+Se ejecuta en puerto 8000 (Flask sigue en 5000)
 """
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 import psycopg2
 from datetime import datetime
-import os
 import uvicorn
-from fastapi.middleware.cors import CORSMiddleware
 
 # Importar el módulo de geolocalización
-try:
-    from geolocalizacion import SimuladorGeolocalizacion
-except ImportError:
-    # Si no existe, crea una versión simple
-    class SimuladorGeolocalizacion:
-        @staticmethod
-        def recomendar_sucursal(domicilio):
-            return {
-                "sucursal_recomendada": "Sucursal Centro",
-                "distancia_km": 5.0,
-                "razon": "Más cercana a tu ubicación",
-                "zona_detectada": "Zona Centro",
-                "todas_distancias": {"Centro": 5.0, "Norte": 10.0, "Sur": 8.0}
-            }
-        
-        ZONAS_COORDENADAS = {"Centro": (19.4326, -99.1332)}
-        SUCURSALES_GEO = {"Sucursal Centro": "Calle Principal 123"}
+from geolocalizacion import SimuladorGeolocalizacion
 
-# ========== CONFIGURACIÓN DE BASE DE DATOS ==========
-def get_db_connection():
-    """Conecta a PostgreSQL en Render o localmente"""
-    try:
-        # Render proporciona DATABASE_URL automáticamente
-        database_url = os.environ.get('DATABASE_URL')
-        
-        if database_url:
-            # Para Render - la URL ya viene con formato
-            # postgresql://usuario:contraseña@host:puerto/base_datos
-            if database_url.startswith("postgres://"):
-                database_url = database_url.replace("postgres://", "postgresql://", 1)
-            
-            print(f"🔗 Conectando a: {database_url[:50]}...")  # Log parcial
-            conn = psycopg2.connect(database_url, sslmode='require')
-            print("✅ Conexión exitosa a PostgreSQL en Render")
-            return conn
-        else:
-            # Para desarrollo local
-            print("🔗 Conectando a PostgreSQL local...")
-            conn = psycopg2.connect(
-                host='localhost',
-                port=5433,
-                database='sistema_clientes',
-                user='postgres',
-                password='postgres123'
-            )
-            print("✅ Conexión exitosa a PostgreSQL local")
-            return conn
-            
-    except Exception as e:
-        print(f"❌ Error de conexión a PostgreSQL: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Error de conexión a la base de datos: {str(e)}"
-        )
+# Configuración de PostgreSQL (usa la misma que tu Flask)
+POSTGRES_CONFIG = {
+    'host': 'localhost',
+    'port': 5432,
+    'database': 'sistema_clientes',
+    'user': 'postgres',
+    'password': 'postgres123'
+}
 
-# ========== INICIALIZAR FASTAPI ==========
+# Inicializar FastAPI
 app = FastAPI(
     title="API Ferbel Motocicletas",
     description="API REST para gestión de clientes, motocicletas y sucursales",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
-
-# ========== CONFIGURACIÓN CORS ==========
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Permite todos los orígenes
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    version="1.0.0",
+    docs_url="/docs",  # Documentación Swagger
+    redoc_url="/redoc"  # Documentación Redoc
 )
 
 # ========== MODELOS PYDANTIC ==========
@@ -122,49 +67,25 @@ class RecomendacionResponse(BaseModel):
     zona_detectada: Optional[str] = None
     todas_distancias: dict
 
-# ========== ENDPOINTS ==========
+# ========== FUNCIONES DE CONEXIÓN ==========
+def get_db_connection():
+    """Conecta a PostgreSQL"""
+    return psycopg2.connect(**POSTGRES_CONFIG)
+
+# ========== ENDPOINTS DE CLIENTES ==========
 @app.get("/")
 async def root():
     """Endpoint raíz"""
     return {
-        "message": "🚀 API Ferbel Motocicletas - DESPLEGADA EN RENDER",
-        "version": "2.0.0",
-        "status": "operacional",
-        "database": "PostgreSQL (Render)",
+        "message": "API Ferbel Motocicletas",
+        "version": "1.0.0",
         "endpoints": {
             "clientes": "/api/clientes",
             "motocicletas": "/api/motocicletas",
             "sucursales": "/api/sucursales",
-            "recomendacion": "/api/recomendacion/domicilio?domicilio=TU_DIRECCION",
-            "documentacion": "/docs",
-            "estadisticas": "/api/estadisticas"
-        },
-        "timestamp": datetime.now().isoformat()
-    }
-
-@app.get("/health")
-async def health_check():
-    """Endpoint de salud para verificar que la API está funcionando"""
-    try:
-        # Intentar conexión a la base de datos
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1")
-        cursor.close()
-        conn.close()
-        
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "timestamp": datetime.now().isoformat()
+            "recomendacion": "/api/recomendacion"
         }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "database": "disconnected",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }, 500
+    }
 
 @app.get("/api/clientes", response_model=List[ClienteResponse])
 async def obtener_clientes(
@@ -206,7 +127,7 @@ async def obtener_clientes(
         return clientes_list
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener clientes: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/clientes/{cliente_id}", response_model=ClienteResponse)
 async def obtener_cliente(cliente_id: int):
@@ -238,7 +159,7 @@ async def obtener_cliente(cliente_id: int):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener cliente: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/clientes", response_model=ClienteResponse, status_code=201)
 async def crear_cliente(cliente: ClienteBase):
@@ -279,10 +200,11 @@ async def crear_cliente(cliente: ClienteBase):
     except psycopg2.IntegrityError as e:
         if 'unique' in str(e).lower():
             raise HTTPException(status_code=400, detail="El email ya está registrado")
-        raise HTTPException(status_code=400, detail=f"Error de integridad: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al crear cliente: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+# ========== ENDPOINTS DE MOTOCICLETAS ==========
 @app.get("/api/motocicletas", response_model=List[MotocicletaResponse])
 async def obtener_motocicletas(
     marca: Optional[str] = None,
@@ -325,8 +247,9 @@ async def obtener_motocicletas(
         return motos_list
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener motocicletas: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+# ========== ENDPOINTS DE SUCURSALES ==========
 @app.get("/api/sucursales", response_model=List[SucursalResponse])
 async def obtener_sucursales():
     """Obtiene lista de sucursales"""
@@ -351,8 +274,9 @@ async def obtener_sucursales():
         return sucursales_list
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener sucursales: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+# ========== ENDPOINTS DE RECOMENDACIÓN ==========
 @app.get("/api/recomendacion/domicilio", response_model=RecomendacionResponse)
 async def recomendar_sucursal_domicilio(domicilio: str = Query(..., min_length=5)):
     """Recomienda sucursal para un domicilio específico"""
@@ -376,12 +300,23 @@ async def recomendar_sucursal_cliente(cliente_id: int):
         domicilio = resultado[0]
         recomendacion = SimuladorGeolocalizacion.recomendar_sucursal(domicilio)
         
+        # Añadir información del cliente
         recomendacion['cliente_id'] = cliente_id
+        
         return recomendacion
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al recomendar sucursal: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/recomendacion/zonas")
+async def obtener_zonas_mapeadas():
+    """Obtiene todas las zonas mapeadas para geolocalización"""
+    return {
+        "zonas_mapeadas": list(SimuladorGeolocalizacion.ZONAS_COORDENADAS.keys()),
+        "sucursales": SimuladorGeolocalizacion.SUCURSALES_GEO
+    }
+
+# ========== ESTADÍSTICAS ==========
 @app.get("/api/estadisticas")
 async def obtener_estadisticas():
     """Obtiene estadísticas del sistema"""
@@ -427,56 +362,21 @@ async def obtener_estadisticas():
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# ========== INICIALIZACIÓN ==========
-def init_database():
-    """Inicializa la base de datos si es necesario"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Verificar si las tablas existen
-        cursor.execute("""
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public'
-        """)
-        tablas = [tabla[0] for tabla in cursor.fetchall()]
-        
-        print(f"📊 Tablas existentes: {tablas}")
-        
-        cursor.close()
-        conn.close()
-        
-    except Exception as e:
-        print(f"⚠️  Nota: {str(e)}")
-
-# ========== EJECUCIÓN PRINCIPAL ==========
+# ========== EJECUCIÓN ==========
 if __name__ == "__main__":
-    # Inicializar base de datos
-    init_database()
-    
-    # Obtener puerto de Render o usar 8000 por defecto
-    port = int(os.environ.get("PORT", 8000))
-    
     print("\n" + "="*60)
-    print("🚀 INICIANDO API FERBEL MOTOCICLETAS EN RENDER")
+    print("🚀 INICIANDO API REST FERBEL MOTOCICLETAS")
     print("="*60)
-    print(f"📡 Puerto asignado: {port}")
-    print(f"🌐 Host: 0.0.0.0")
-    print(f"🔗 Base de datos: {os.environ.get('DATABASE_URL', 'Local')[:30]}...")
-    print("="*60)
-    print("✅ Endpoints disponibles:")
-    print(f"   • API: http://0.0.0.0:{port}/")
-    print(f"   • Docs: http://0.0.0.0:{port}/docs")
-    print(f"   • Health: http://0.0.0.0:{port}/health")
+    print("📡 API disponible en: http://localhost:8000")
+    print("📚 Documentación: http://localhost:8000/docs")
+    print("📊 Redoc: http://localhost:8000/redoc")
     print("="*60 + "\n")
     
-    # Iniciar servidor
     uvicorn.run(
-        app,
+        "api_fastapi:app",  # Cambiado a string
         host="0.0.0.0",
-        port=port,
-        reload=False  # IMPORTANTE: False en producción
+        port=8000,
+        reload=True
     )
