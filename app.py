@@ -7,40 +7,55 @@ import sys
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_para_flash_messages'
 
-# ========== CONFIGURACIÓN ==========
-# CAMBIA ESTA VARIABLE SEGÚN LO QUE QUIERAS USAR
-USAR_POSTGRESQL = True  # Cambia a True para PostgreSQL, False para SQLite
+# ========== CONFIGURACIÓN MODIFICADA ==========
+# OBTENER DATABASE_URL DE RENDER (VARIABLE DE ENTORNO)
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-# Configuración de PostgreSQL (solo si USAR_POSTGRESQL = True)
-POSTGRES_CONFIG = {
+# Configuración local para desarrollo (solo si no hay DATABASE_URL)
+LOCAL_POSTGRES = {
     'host': 'localhost',
     'port': 5432,
     'database': 'sistema_clientes',
     'user': 'postgres',
-    'password': 'postgres123'  # <-- NUEVA CONTRASEÑA
+    'password': 'postgres123'
 }
 
-# ========== FUNCIÓN DE CONEXIÓN ==========
+# ========== FUNCIÓN DE CONEXIÓN MODIFICADA ==========
 def get_db_connection():
-    """Conecta a PostgreSQL o SQLite según configuración"""
-    if USAR_POSTGRESQL:
+    """Conecta a PostgreSQL (Render o local) o usa SQLite como respaldo"""
+    
+    # 1. PRIMERO INTENTAR CON RENDER POSTGRESQL (PRODUCCIÓN)
+    if DATABASE_URL:
         try:
-            conn = psycopg2.connect(**POSTGRES_CONFIG)
+            print("🚀 Intentando conectar a PostgreSQL de Render...")
+            # Render usa 'postgresql://' pero psycopg2 necesita 'postgres://'
+            db_url = DATABASE_URL
+            if db_url.startswith('postgresql://'):
+                db_url = db_url.replace('postgresql://', 'postgres://', 1)
+            
+            # Conexión con SSL para Render
+            conn = psycopg2.connect(db_url, sslmode='require')
+            print("✅ ¡Conectado a PostgreSQL en Render!")
             return conn
         except Exception as e:
-            print(f"❌ Error PostgreSQL: {e}")
-            print("📁 Usando SQLite como respaldo...")
-            # Fallback a SQLite
-            import sqlite3
-            conn = sqlite3.connect('clientes.db')
-            conn.row_factory = sqlite3.Row
-            return conn
-    else:
-        # Usar SQLite directamente
-        import sqlite3
-        conn = sqlite3.connect('clientes.db')
-        conn.row_factory = sqlite3.Row
+            print(f"❌ Error PostgreSQL (Render): {e}")
+            print("Intentando conexión local...")
+    
+    # 2. SEGUNDO INTENTAR CON POSTGRESQL LOCAL (DESARROLLO)
+    try:
+        print("🔗 Intentando conectar a PostgreSQL local...")
+        conn = psycopg2.connect(**LOCAL_POSTGRES)
+        print("✅ ¡Conectado a PostgreSQL local!")
         return conn
+    except Exception as e:
+        print(f"❌ Error PostgreSQL (local): {e}")
+    
+    # 3. ÚLTIMO RECURSO: SQLITE
+    print("📁 Usando SQLite como respaldo...")
+    import sqlite3
+    conn = sqlite3.connect('clientes.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # ========== INICIALIZACIÓN DE BASE DE DATOS ==========
 def init_db():
@@ -381,28 +396,52 @@ def lista_sucursales():
     conn.close()
     return render_template('sucursales.html', sucursales=sucursales)
 
-# ========== EJECUCIÓN ==========
+# ========== RUTA ADICIONAL PARA INICIALIZAR BD ==========
+@app.route('/init-db')
+def init_db_route():
+    """Ruta para inicializar la base de datos manualmente"""
+    try:
+        init_db()
+        return '''
+        <h1>✅ Base de datos inicializada correctamente!</h1>
+        <p>Las tablas se han creado en PostgreSQL.</p>
+        <p><a href="/">Volver al inicio</a> | <a href="/capturar">Ir al formulario</a></p>
+        '''
+    except Exception as e:
+        return f'''
+        <h1>❌ Error al inicializar base de datos</h1>
+        <p><strong>Error:</strong> {str(e)}</p>
+        <p><a href="/">Volver al inicio</a></p>
+        '''
+
+# ========== EJECUCIÓN MODIFICADA ==========
 if __name__ == '__main__':
     print("\n" + "="*60)
     print("🚀 INICIANDO SISTEMA DE CAPTURA DE CLIENTES")
     print("="*60)
     
-    # Instalar psycopg2 si no está instalado y queremos PostgreSQL
-    if USAR_POSTGRESQL:
-        try:
-            import psycopg2
-        except ImportError:
-            print("📦 Instalando psycopg2 para PostgreSQL...")
-            import subprocess
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2-binary"])
-            import psycopg2
+    # Verificar si estamos en Render
+    is_render = 'RENDER' in os.environ or 'DATABASE_URL' in os.environ
+    port = int(os.environ.get('PORT', 5000))
+    
+    # Instalar psycopg2 si no está instalado
+    try:
+        import psycopg2
+    except ImportError:
+        print("📦 Instalando psycopg2 para PostgreSQL...")
+        import subprocess
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2-binary"])
+        import psycopg2
     
     # Inicializar la base de datos
     init_db()
     
-    print(f"\n💾 Base de datos: {'PostgreSQL' if USAR_POSTGRESQL else 'SQLite'}")
-    print("🌐 Servidor: http://localhost:5000")
+    print(f"\n💾 Modo: {'PostgreSQL en Render' if DATABASE_URL else 'PostgreSQL local o SQLite'}")
+    print(f"🌐 Servidor: http://0.0.0.0:{port}")
+    print(f"🔧 Entorno: {'Render' if is_render else 'Local'}")
     print("="*60 + "\n")
     
     # Ejecutar la aplicación
-    app.run(debug=True, port=5000)
+    # En Render usa 0.0.0.0, local usa 127.0.0.1
+    host = '0.0.0.0' if is_render else '127.0.0.1'
+    app.run(host=host, port=port, debug=not is_render)
