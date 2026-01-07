@@ -1,8 +1,9 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import psycopg2
 from datetime import datetime
 import os
 import sys
+import math
 
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_para_flash_messages'
@@ -413,6 +414,111 @@ def init_db_route():
         <p><strong>Error:</strong> {str(e)}</p>
         <p><a href="/">Volver al inicio</a></p>
         '''
+
+# ========== NUEVA FUNCIÓN DE RECOMENDACIÓN ==========
+def recomendar_sucursal(domicilio):
+    """Recomienda sucursal basada en el domicilio"""
+    domicilio_lower = domicilio.lower()
+    
+    # Coordenadas simuladas de zonas de CDMX
+    zonas_coordenadas = {
+        # Zonas Sur
+        'coapa': (19.2870, -99.1302),
+        'coyoacan': (19.3458, -99.1623),
+        'xochimilco': (19.2579, -99.1056),
+        'tlalpan': (19.2871, -99.1399),
+        'vallejo': (19.4785, -99.1432),
+        'iztapalapa': (19.3585, -99.0671),
+        
+        # Zonas Norte
+        'satelite': (19.5158, -99.2346),
+        'naucalpan': (19.4785, -99.2387),
+        'interlomas': (19.4138, -99.2841),
+        'polanco': (19.4343, -99.1993),
+        
+        # Zonas Centro
+        'patriotismo': (19.4038, -99.1785),
+        'condesa': (19.4131, -99.1772),
+        'roma': (19.4161, -99.1617),
+        'juarez': (19.4326, -99.1332),
+        'centro': (19.4326, -99.1332)
+    }
+    
+    # Coordenadas de sucursales
+    sucursales = {
+        'KTM Ferbel Coapa': (19.2870, -99.1302),
+        'KTM Ferbel Satelite': (19.5158, -99.2346),
+        'Yamaha Ferbel Patriotismo': (19.4038, -99.1785)
+    }
+    
+    # Detectar zona
+    zona_detectada = None
+    for zona, coords in zonas_coordenadas.items():
+        if zona in domicilio_lower:
+            zona_detectada = zona
+            break
+    
+    # Calcular distancias
+    distancias = {}
+    for sucursal, coords_suc in sucursales.items():
+        if zona_detectada:
+            coords_zona = zonas_coordenadas[zona_detectada]
+            # Calcular distancia aproximada en km
+            distancia = math.sqrt(
+                (coords_suc[0] - coords_zona[0])**2 + 
+                (coords_suc[1] - coords_zona[1])**2
+            ) * 111  # Conversión a km
+            distancias[sucursal] = round(distancia, 1)
+        else:
+            # Distancias por defecto
+            distancias = {
+                'KTM Ferbel Coapa': 8.5,
+                'KTM Ferbel Satelite': 12.3,
+                'Yamaha Ferbel Patriotismo': 6.8
+            }
+    
+    # Encontrar sucursal más cercana
+    sucursal_recomendada = min(distancias, key=distancias.get)
+    distancia_km = distancias[sucursal_recomendada]
+    
+    # Razón según zona detectada
+    if zona_detectada:
+        if any(z in zona_detectada for z in ['coapa', 'coyoacan', 'tlalpan', 'xochimilco', 'vallejo']):
+            razon = f'Ubicado en zona Sur ({zona_detectada.capitalize()}) - Sucursal más cercana'
+        elif any(z in zona_detectada for z in ['satelite', 'naucalpan', 'interlomas']):
+            razon = f'Ubicado en zona Norte ({zona_detectada.capitalize()}) - Sucursal más cercana'
+        elif any(z in zona_detectada for z in ['polanco', 'condesa', 'roma', 'juarez']):
+            razon = f'Ubicado en zona Centro/Oeste ({zona_detectada.capitalize()}) - Sucursal más cercana'
+        else:
+            razon = f'Zona detectada: {zona_detectada.capitalize()} - Sucursal recomendada'
+    else:
+        razon = 'Sucursal principal recomendada (ubicación no específica detectada)'
+    
+    return {
+        'sucursal_recomendada': sucursal_recomendada,
+        'distancia_km': distancia_km,
+        'razon': razon,
+        'zona_detectada': zona_detectada.capitalize() if zona_detectada else 'No identificada',
+        'todas_distancias': distancias
+    }
+
+# ========== NUEVA RUTA PARA RECOMENDACIÓN ==========
+@app.route('/api/recomendacion', methods=['GET'])
+def api_recomendacion():
+    """Endpoint para recomendación de sucursal"""
+    try:
+        domicilio = request.args.get('domicilio', '')
+        
+        if not domicilio or len(domicilio) < 3:
+            return jsonify({
+                'error': 'Debe proporcionar un domicilio válido (mínimo 3 caracteres)'
+            }), 400
+        
+        recomendacion = recomendar_sucursal(domicilio)
+        return jsonify(recomendacion)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ========== EJECUCIÓN MODIFICADA ==========
 if __name__ == '__main__':

@@ -136,9 +136,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.disabled = true;
                 
                 try {
-                    // Llamar a la API de FastAPI
+                    // Llamar a la API de Flask (URL CORREGIDA)
                     const response = await fetch(
-                        `http://localhost:8000/api/recomendacion/domicilio?domicilio=${encodeURIComponent(domicilioValor)}`
+                        `/api/recomendacion?domicilio=${encodeURIComponent(domicilioValor)}`
                     );
                     
                     if (!response.ok) {
@@ -178,13 +178,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 } catch (error) {
                     console.error('Error al obtener recomendación:', error);
                     
-                    // Mostrar mensaje de error amigable
+                    // Mostrar mensaje de error amigable (MENSAJE CORREGIDO)
                     const resultadoDiv = document.getElementById('recomendacionResultado');
                     resultadoDiv.innerHTML = `
                         <div style="color: #721c24; background-color: #f8d7da; padding: 10px; border-radius: 4px;">
                             <i class="fas fa-exclamation-triangle"></i>
                             <strong> Error:</strong> No se pudo obtener recomendación. 
-                            <br><small>Asegúrate de que la API esté corriendo en http://localhost:8000</small>
+                            <br><small>Intenta nuevamente o selecciona una sucursal manualmente</small>
                         </div>
                     `;
                     resultadoDiv.style.display = 'block';
@@ -435,8 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Función para probar la API desde consola (para desarrollo)
 function probarAPI() {
     console.log('🔧 Pruebas de API disponibles:');
-    console.log('1. fetch("http://localhost:8000/api/clientes").then(r => r.json())');
-    console.log('2. fetch("http://localhost:8000/api/motocicletas?marca=KTM").then(r => r.json())');
-    console.log('3. fetch("http://localhost:8000/api/recomendacion/domicilio?domicilio=Coyoacan").then(r => r.json())');
-    console.log('📚 Documentación: http://localhost:8000/docs');
+    console.log('1. fetch("/api/recomendacion?domicilio=Coyoacan").then(r => r.json())');
+    console.log('2. fetch("/api/recomendacion?domicilio=vallejo").then(r => r.json())');
+    console.log('3. fetch("/api/recomendacion?domicilio=satelite").then(r => r.json())');
 }
