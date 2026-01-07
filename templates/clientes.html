@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Captura de Clientes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-user-plus"></i> Formulario de Captura de Clientes</h1>
+            <a href="{{ url_for('index') }}" class="btn-back"><i class="fas fa-arrow-left"></i> Volver al Inicio</a>
+        </header>
+        
+        <main>
+            <!-- Mostrar mensajes flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            
+            <div class="form-container">
+                <form action="{{ url_for('guardar_cliente') }}" method="POST" class="client-form" id="clienteForm">
+                    <div class="form-header">
+                        <h2><i class="fas fa-id-card"></i> Información Personal</h2>
+                        <p>Complete todos los campos obligatorios (*)</p>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="primer_nombre">
+                                <i class="fas fa-user"></i> Primer Nombre *
+                            </label>
+                            <input type="text" id="primer_nombre" name="primer_nombre" required 
+                                   placeholder="Ej: Juan" minlength="2" maxlength="50">
+                            <small class="form-text">Mínimo 2 caracteres</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="segundo_nombre">
+                                <i class="fas fa-user"></i> Segundo Nombre
+                            </label>
+                            <input type="text" id="segundo_nombre" name="segundo_nombre" 
+                                   placeholder="Ej: Carlos" maxlength="50">
+                            <small class="form-text">Opcional</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="primer_apellido">
+                                <i class="fas fa-user"></i> Primer Apellido *
+                            </label>
+                            <input type="text" id="primer_apellido" name="primer_apellido" required 
+                                   placeholder="Ej: Pérez" minlength="2" maxlength="50">
+                            <small class="form-text">Mínimo 2 caracteres</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="segundo_apellido">
+                                <i class="fas fa-user"></i> Segundo Apellido
+                            </label>
+                            <input type="text" id="segundo_apellido" name="segundo_apellido" 
+                                   placeholder="Ej: González" maxlength="50">
+                            <small class="form-text">Opcional</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h3><i class="fas fa-envelope"></i> Información de Contacto</h3>
+                        
+                        <div class="form-group">
+                            <label for="email">
+                                <i class="fas fa-at"></i> Correo Electrónico *
+                            </label>
+                            <input type="email" id="email" name="email" required 
+                                   placeholder="ejemplo@correo.com" maxlength="100">
+                            <small class="form-text">Debe ser un correo válido</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="telefono">
+                                <i class="fas fa-phone"></i> Teléfono (Opcional)
+                            </label>
+                            <input type="tel" id="telefono" name="telefono" 
+                                   placeholder="Ej: 5512345678" maxlength="10">
+                            <small class="form-text">10 dígitos sin espacios</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="domicilio">
+                                <i class="fas fa-home"></i> Domicilio *
+                            </label>
+                            <textarea id="domicilio" name="domicilio" required 
+                                    placeholder="Ej: Av. Patriotismo 98, Col. Condesa, Miguel Hidalgo, CDMX" 
+                                    rows="3" maxlength="200"></textarea>
+                            <small class="form-text">
+                                <i class="fas fa-info-circle"></i> Incluya colonia o zona para mejor recomendación de sucursal
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h3><i class="fas fa-motorcycle"></i> Motocicleta y Sucursal</h3>
+                        
+                        <div class="form-group">
+                            <label for="motocicleta_interes">
+                                <i class="fas fa-biking"></i> Motocicleta de interés *
+                            </label>
+                            <select id="motocicleta_interes" name="motocicleta_interes" required>
+                                <option value="">-- Seleccione una motocicleta --</option>
+                                {% for moto in motocicletas %}
+                                    <option value="{{ moto }}">{{ moto }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text">Seleccione la motocicleta de interés</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="sucursal">
+                                <i class="fas fa-store"></i> Sucursal de interés *
+                            </label>
+                            <select id="sucursal" name="sucursal" required>
+                                <option value="">-- Seleccione una sucursal --</option>
+                                {% for sucursal in sucursales %}
+                                    <option value="{{ sucursal }}">{{ sucursal }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text">Seleccione la sucursal de preferencia</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-submit">
+                            <i class="fas fa-save"></i> Guardar Cliente
+                        </button>
+                        <button type="reset" class="btn btn-reset">
+                            <i class="fas fa-eraser"></i> Limpiar Formulario
+                        </button>
+                        <a href="{{ url_for('lista_clientes') }}" class="btn btn-list">
+                            <i class="fas fa-list"></i> Ver Clientes
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </main>
+        
+        <footer>
+            <p>Sistema de Captura de Clientes, CDMX-2025</p>
+        </footer>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

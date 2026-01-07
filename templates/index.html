@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Captura de Clientes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-motorcycle"></i> Sistema de Captura de  Clientes Interesados en Motocicletas </h1>
+        </header>
+        
+        <main>
+            <div class="welcome-section">
+                <div class="welcome-card">
+                    <h2><i class="fas fa-handshake"></i> Bienvenido</h2>
+                    <p>Este sistema permite capturar y gestionar la información de clientes interesados en motocicletas.</p>
+                    
+                    <div class="features">
+                        <div class="feature">
+                            <i class="fas fa-user-plus"></i>
+                            <h3>Captura de Clientes</h3>
+                            <p>Registra nuevos clientes con todos sus datos</p>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-list"></i>
+                            <h3>Lista de Clientes</h3>
+                            <p>Consulta todos los clientes registrados</p>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-motorcycle"></i>
+                            <h3>Motocicletas</h3>
+                            <p>Registra el interés por diferentes modelos</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    <a href="{{ url_for('mostrar_formulario') }}" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Capturar Nuevo Cliente
+                    </a>
+                    <a href="{{ url_for('lista_clientes') }}" class="btn btn-secondary">
+                        <i class="fas fa-list"></i> Ver Clientes Registrados
+                    </a>
+                </div>
+                
+            </div>
+        </main>
+        
+        <footer>
+            <p>Sistema de Captura de Clientes, CDMX-2025</p>
+        </footer>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
